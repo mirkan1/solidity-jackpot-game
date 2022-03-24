@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 contract Jacpot is Ownable {
-    using SafeMath for uint;
+    using SafeMath for uint256;
 
     event JackpotCreated(address indexed creator, uint256 poolSize, uint256 returnRate, uint256 time);
     event JackpotClaimed(address indexed player, uint256 invested, uint256 returned, uint256 time);
