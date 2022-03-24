@@ -88,6 +88,10 @@ contract Jacpot is Ownable {
         while(j.invested[msg.sender] <= j.invested[j.winners[index]]) {
             index++;
         }
+        for(uint256 i = j.winners.length - 1; i > index; i--) {
+            j.winners[i] = j.winners[i - 1];
+        }
+        j.winners[index] = msg.sender;
 
         // log
         emit JackpotFunded(msg.sender, msg.value, block.timestamp);
@@ -111,4 +115,5 @@ contract Jacpot is Ownable {
         j.finished = block.timestamp;
         emit JackpotFinished(j.id, block.timestamp);
     }
+
 }
