@@ -1,6 +1,5 @@
 pragma solidity ^0.8.12;
 
-
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts v4.4.1 (utils/math/SafeMath.sol)
 // CAUTION
@@ -458,7 +457,7 @@ contract Jacpot is Ownable {
         j.finished = 0;
         j.winRates = _winRates;
         for(uint256 i = 0; i < _winRates.length; i++) {
-            j.winners[i] = address(0);
+            j.winners.push(address(0));
         }
         jackpotCounter++;
 
@@ -472,7 +471,7 @@ contract Jacpot is Ownable {
 
         // basic controls
         require(j.finished == 0, "Jackpot is finished, wait for the next one");
-        require(j.poolSize <= j.totalInvested, "Pool is full");
+        require(j.poolSize >= j.totalInvested, "Pool is full");
         require(msg.value >= j.minimumBet, "Minimum bet must be greater than or equal to the amount");
         require(msg.value <= j.maximumBet, "Maximum bet must be less than or equal to the amount");
 
@@ -482,13 +481,15 @@ contract Jacpot is Ownable {
 
         // update winners
         uint index = 0;
-        while(j.invested[msg.sender] <= j.invested[j.winners[index]]) {
+        while(index < j.winRates.length && j.invested[msg.sender] <= j.invested[j.winners[index]]) {
             index++;
         }
-        for(uint256 i = j.winners.length - 1; i > index; i--) {
-            j.winners[i] = j.winners[i - 1];
+        if(index < j.winRates.length) {
+            for(uint256 i = 0; i < j.winRates.length - 1; i++) {
+                j.winners[i+1] = j.winners[i];
+            }
+            j.winners[index] = msg.sender;
         }
-        j.winners[index] = msg.sender;
 
         // log
         emit JackpotFunded(msg.sender, msg.value, block.timestamp);
@@ -511,6 +512,17 @@ contract Jacpot is Ownable {
         payable(owner()).transfer(address(this).balance);
         j.finished = block.timestamp;
         emit JackpotFinished(j.id, block.timestamp);
+    }
+
+    function getInvested(address _addr) public view returns (uint256) {
+        Jackpot storage j = jackpots[jackpotCounter - 1];
+        return j.invested[_addr];
+    }   
+
+    function getCurrentWinners() public view returns (address[] memory, uint256[] memory) {
+        Jackpot storage j = jackpots[jackpotCounter - 1];
+
+        return (j.winners, j.winRates);
     }
 
 }
