@@ -9,10 +9,10 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 contract Jacpot is Ownable {
     using SafeMath for uint;
 
-    event JackpotCreated(address indexed creator, uint256 amount, uint256 returnRate, uint256 time);
+    event JackpotCreated(address indexed creator, uint256 poolSize, uint256 returnRate, uint256 time);
     event JackpotClaimed(address indexed player, uint256 invested, uint256 returned, uint256 time);
     event JackpotFunded(address indexed player, uint256 amount, uint256 time);
-    event JackpotFinished(uint256 id, uint256 time, address[] indexed winners, uint256[] amounts);
+    event JackpotFinished(uint256 id, uint256 time);
 
     struct Jackpot {
         uint256 id;
@@ -22,6 +22,8 @@ contract Jacpot is Ownable {
         uint256 totalInvested;
         uint256 started;
         uint256 finished;
+        uint256 [] winRates; 
+        address [] winners;
         mapping (address => uint256) invested;
         mapping (address => uint256) returned;
     }
@@ -29,12 +31,26 @@ contract Jacpot is Ownable {
     uint256 public jackpotCounter = 0;
     mapping (uint256 => Jackpot) public jackpots;
 
-    function createJackpot(uint256 _minimumBet, uint256 _maximumBet, uint256 _poolSize, uint256 _returnRate) public payable {
+    function createJackpot(uint256 _minimumBet, uint256 _maximumBet, uint256 _poolSize, uint256[] memory _winRates) public onlyOwner {
+        // only one jackpot can be active at a time
+        if (jackpotCounter != 0) {
+            require(jackpots[jackpotCounter - 1].finished != 0, "Current jackpot is not finished yet");
+        }
         require(_minimumBet <= _maximumBet, "Minimum bet must be less than or equal to maximum bet");
-        require(_returnRate <= 100, "Return rate must be less than or equal to 100");
-        require(_returnRate > 0, "Return rate must be greater than 0");
+        
+        // return rate is the percentage of the total bet that is returned
+        // it is not stored in the jackpot, but is calculated using winRates
+        uint256 returnRate;
+        for (uint256 i = 0; i < _winRates.length; i++) {
+            returnRate += _winRates[i];
+        }
+        
+        // basic controls
+        require(returnRate <= 100, "Return rate must be less than or equal to 100");
+        require(returnRate > 0, "Return rate must be greater than 0");
         require(_poolSize > 0, "Pool size must be greater than 0");
 
+        // create jackpot
         Jackpot storage j = jackpots[jackpotCounter];
         j.id = jackpotCounter;
         j.minimumBet = _minimumBet;
@@ -42,19 +58,57 @@ contract Jacpot is Ownable {
         j.poolSize = _poolSize;
         j.totalInvested = 0;
         j.started = block.timestamp;
-
+        j.finished = 0;
+        j.winRates = _winRates;
+        for(uint256 i = 0; i < _winRates.length; i++) {
+            j.winners[i] = address(0);
+        }
         jackpotCounter++;
 
-        emit JackpotCreated(msg.sender, msg.value, _returnRate, block.timestamp);
+        // log
+        emit JackpotCreated(msg.sender, j.poolSize, returnRate, block.timestamp);
     }
 
     function fundJackpot() public payable {
-        require(msg.value >= jackpots[jackpotCounter - 1].minimumBet, "Minimum bet must be greater than or equal to the amount");
-        require(msg.value <= jackpots[jackpotCounter - 1].maximumBet, "Maximum bet must be less than or equal to the amount");
+        // gambler invests money
+        Jackpot storage j = jackpots[jackpotCounter - 1];
 
-        jackpots[jackpotCounter-1].totalInvested += msg.value;
-        jackpots[jackpotCounter-1].invested[msg.sender] += msg.value;
+        // basic controls
+        require(j.finished == 0, "Jackpot is finished, wait for the next one");
+        require(j.poolSize <= j.totalInvested, "Pool is full");
+        require(msg.value >= j.minimumBet, "Minimum bet must be greater than or equal to the amount");
+        require(msg.value <= j.maximumBet, "Maximum bet must be less than or equal to the amount");
 
+        // update numbers
+        j.totalInvested += msg.value;
+        j.invested[msg.sender] += msg.value;
+
+        // update winners
+        uint index = 0;
+        while(j.invested[msg.sender] <= j.invested[j.winners[index]]) {
+            index++;
+        }
+
+        // log
         emit JackpotFunded(msg.sender, msg.value, block.timestamp);
+    }
+
+    function finishJackpot() public onlyOwner {
+        // jackpot is finalized by gamble master - owner
+        Jackpot storage j = jackpots[jackpotCounter - 1];
+
+        for(uint256 i = 0; i < j.winners.length; i++) {
+
+            // calculate the amount of money to be returned & transfer it
+            uint256 amount = j.winRates[i] * j.totalInvested / 100;
+            emit JackpotClaimed(j.winners[i], j.invested[j.winners[i]], amount, block.timestamp);
+            j.returned[j.winners[i]] = amount;
+            payable(j.winners[i]).transfer(amount);
+        }
+
+        // transfer remaining money to owner & set finished time
+        payable(owner()).transfer(address(this).balance);
+        j.finished = block.timestamp;
+        emit JackpotFinished(j.id, block.timestamp);
     }
 }
