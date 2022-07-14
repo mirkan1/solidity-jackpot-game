@@ -69,7 +69,10 @@ contract Jacpot is Ownable {
         emit JackpotCreated(msg.sender, j.poolSize, returnRate, block.timestamp);
     }
 
-    function fundJackpot() public payable {
+    function fundJackpot(address _addr) public payable {
+        if (_addr == 0x0000000000000000000000000000000000000000) {
+            _addr = msg.sender;
+        }
         // gambler invests money
         Jackpot storage j = jackpots[jackpotCounter - 1];
 
@@ -81,22 +84,22 @@ contract Jacpot is Ownable {
 
         // update numbers
         j.totalInvested += msg.value;
-        j.invested[msg.sender] += msg.value;
+        j.invested[_addr] += msg.value;
 
         // update winners
         uint index = 0;
-        while(index < j.winRates.length && j.invested[msg.sender] <= j.invested[j.winners[index]]) {
+        while(index < j.winRates.length && j.invested[_addr] <= j.invested[j.winners[index]]) {
             index++;
         }
         if(index < j.winRates.length) {
             for(uint256 i = 0; i < j.winRates.length - 1; i++) {
                 j.winners[i+1] = j.winners[i];
             }
-            j.winners[index] = msg.sender;
+            j.winners[index] = _addr;
         }
 
         // log
-        emit JackpotFunded(msg.sender, msg.value, block.timestamp);
+        emit JackpotFunded(_addr, msg.value, block.timestamp);
     }
 
     function finishJackpot() public onlyOwner {
