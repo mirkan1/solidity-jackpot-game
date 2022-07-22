@@ -88,11 +88,15 @@ contract Jacpot is Ownable {
 
         // update winners
         uint index = 0;
-        while(index < j.winRates.length && j.invested[_addr] <= j.invested[j.winners[index]]) {
+        uint winnerCount = 0;
+        while(winnerCount < j.winRates.length && j.winners[winnerCount] != 0x0000000000000000000000000000000000000000 && j.winners[winnerCount] != _addr) {
+            winnerCount++;
+        }
+        while(index < j.winRates.length && j.invested[_addr] <= j.invested[j.winners[index]] && j.winners[index] != _addr) {
             index++;
         }
         if(index < j.winRates.length) {
-            for(uint256 i = 0; i < j.winRates.length - 1; i++) {
+            for(uint256 i = index; i < winnerCount; i++) {
                 j.winners[i+1] = j.winners[i];
             }
             j.winners[index] = _addr;
