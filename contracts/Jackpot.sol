@@ -70,7 +70,7 @@ contract Jacpot is Ownable {
     }
 
     function fundJackpot(address _addr) public payable {
-        if (_addr == 0x0000000000000000000000000000000000000000) {
+        if (_addr == address(0)) {
             _addr = msg.sender;
         }
         // gambler invests money
@@ -89,7 +89,7 @@ contract Jacpot is Ownable {
         // update winners
         uint index = 0;
         uint winnerCount = 0;
-        while(winnerCount < j.winRates.length && j.winners[winnerCount] != 0x0000000000000000000000000000000000000000 && j.winners[winnerCount] != _addr) {
+        while(winnerCount < j.winRates.length && j.winners[winnerCount] != address(0) && j.winners[winnerCount] != _addr) {
             winnerCount++;
         }
         while(index < j.winRates.length && j.invested[_addr] <= j.invested[j.winners[index]] && j.winners[index] != _addr) {
